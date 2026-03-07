@@ -1,7 +1,13 @@
-import { Notice, Plugin } from "obsidian";
+import { addIcon, Notice, Plugin } from "obsidian";
 import { AIChatClipSettingTab } from "./settings";
 import { syncClips } from "./sync";
 import { type AIChatClipSettings, DEFAULT_SETTINGS } from "./types";
+
+const LOGO_ICON = `<g transform="scale(4.1667)" fill="currentColor">
+  <circle cx="13" cy="10.27" r="2"/>
+  <path d="M20.2,9.8l-3.5,6.06c-.27.48-.89.64-1.37.37s-.64-.89-.37-1.37l3.5-6.06c1.11-1.91.45-4.36-1.46-5.46s-4.36-.45-5.46,1.46l-.5.87c-.27.48-.89.64-1.37.37s-.64-.89-.37-1.37l.5-.87C11.46.94,15.13-.05,18,1.61s3.85,5.33,2.2,8.2Z"/>
+  <path d="M14.7,19.33l-.5.87c-1.66,2.87-5.33,3.85-8.2,2.2s-3.85-5.33-2.2-8.2l3.5-6.06c.27-.48.89-.64,1.37-.37s.64.89.37,1.37l-3.5,6.06c-1.1,1.91-.45,4.36,1.46,5.46s4.36.45,5.46-1.46l.5-.87c.27-.48.89-.64,1.37-.37s.64.89.37,1.37Z"/>
+</g>`;
 
 export default class AIChatClipPlugin extends Plugin {
 	settings: AIChatClipSettings = DEFAULT_SETTINGS;
@@ -12,7 +18,8 @@ export default class AIChatClipPlugin extends Plugin {
 	async onload(): Promise<void> {
 		await this.loadSettings();
 
-		this.addRibbonIcon("refresh-cw", "Sync AIChatClip", () => this.performSync());
+		addIcon("aichatclip-logo", LOGO_ICON);
+		this.addRibbonIcon("aichatclip-logo", "Sync AIChatClip", () => this.performSync());
 
 		this.addCommand({
 			id: "sync",

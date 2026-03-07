@@ -1,4 +1,5 @@
 import { type App, requestUrl } from "obsidian";
+import { scanFolders, syncFoldersToApi } from "./folders";
 import { extractDatePrefix, formatClipToMarkdown } from "./formatter";
 import type { AIChatClipSettings, Clip } from "./types";
 
@@ -68,13 +69,18 @@ async function getExistingSyncedClipIds(app: App, folderPath: string): Promise<S
 	return ids;
 }
 
-async function resolveFilePath(app: App, folderPath: string, datePrefix: string): Promise<string> {
-	const baseName = `${datePrefix}-ChatLog`;
-	let candidate = `${folderPath}/${baseName}.md`;
+async function resolveFilePath(
+	app: App,
+	targetFolder: string,
+	datePrefix: string,
+	baseName: string,
+): Promise<string> {
+	const fullBase = `${datePrefix}-${baseName}`;
+	let candidate = `${targetFolder}/${fullBase}.md`;
 	let counter = 2;
 
 	while (app.vault.getAbstractFileByPath(candidate)) {
-		candidate = `${folderPath}/${baseName}-${counter}.md`;
+		candidate = `${targetFolder}/${fullBase}-${counter}.md`;
 		counter++;
 	}
 
@@ -83,6 +89,16 @@ async function resolveFilePath(app: App, folderPath: string, datePrefix: string)
 
 export async function syncClips(app: App, settings: AIChatClipSettings): Promise<SyncResult> {
 	const result: SyncResult = { synced: 0, failed: 0, errors: [] };
+
+	// Sync vault folder structure to API for AI categorization
+	if (settings.autoScanFolders) {
+		try {
+			const folders = await scanFolders(app, settings.scanRoot, settings.markerFilename);
+			await syncFoldersToApi(settings, folders);
+		} catch (e) {
+			console.warn("AIChatClip: folder sync failed, continuing with clip sync", e);
+		}
+	}
 
 	const clips = await fetchPendingClips(settings);
 	if (clips.length === 0) return result;
@@ -101,7 +117,12 @@ export async function syncClips(app: App, settings: AIChatClipSettings): Promise
 
 			const markdown = formatClipToMarkdown(clip);
 			const datePrefix = extractDatePrefix(clip.createdAt);
-			const filePath = await resolveFilePath(app, settings.inboxFolder, datePrefix);
+			const targetFolder = clip.folderPath
+				? `${settings.inboxFolder}/${clip.folderPath}`
+				: settings.inboxFolder;
+			await ensureFolder(app, targetFolder);
+			const baseName = clip.fileName || "ChatLog";
+			const filePath = await resolveFilePath(app, targetFolder, datePrefix, baseName);
 
 			await app.vault.create(filePath, markdown);
 

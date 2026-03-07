@@ -14,6 +14,7 @@ export interface Clip {
 	summary: string | null;
 	tags: string | null;
 	folderPath: string | null;
+	fileName: string | null;
 	createdAt: string;
 	syncedAt: string | null;
 }
@@ -24,6 +25,9 @@ export interface AIChatClipSettings {
 	inboxFolder: string;
 	autoSyncOnLoad: boolean;
 	syncIntervalMinutes: number;
+	scanRoot: string;
+	markerFilename: string;
+	autoScanFolders: boolean;
 }
 
 export const DEFAULT_SETTINGS: AIChatClipSettings = {
@@ -32,4 +36,7 @@ export const DEFAULT_SETTINGS: AIChatClipSettings = {
 	inboxFolder: "AIChatClip/Inbox",
 	autoSyncOnLoad: true,
 	syncIntervalMinutes: 0,
+	scanRoot: "",
+	markerFilename: "README",
+	autoScanFolders: true,
 };

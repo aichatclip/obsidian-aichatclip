@@ -1,0 +1,144 @@
+.aichatclip-header-link {
+	text-align: center;
+	margin-bottom: 16px;
+	font-size: var(--font-ui-small);
+}
+
+.aichatclip-header-link a {
+	color: var(--text-muted);
+}
+
+.aichatclip-header-link a:hover {
+	color: var(--text-accent);
+}
+
+.aichatclip-tab-header {
+	display: flex;
+	gap: 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+	margin-bottom: 16px;
+}
+
+.aichatclip-tab-button {
+	background: transparent;
+	border: none;
+	border-bottom: 2px solid transparent;
+	padding: 8px 16px;
+	cursor: pointer;
+	color: var(--text-muted);
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-medium);
+	margin-bottom: -1px;
+}
+
+.aichatclip-tab-button:hover {
+	color: var(--text-normal);
+}
+
+.aichatclip-tab-button.is-active {
+	color: var(--text-normal);
+	border-bottom-color: var(--interactive-accent);
+}
+
+.aichatclip-tab-content {
+	display: none;
+}
+
+.aichatclip-tab-content.is-active {
+	display: block;
+}
+
+.aichatclip-pro-badge {
+	display: inline-block;
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+	font-size: 10px;
+	line-height: 1;
+	padding: 2px 6px;
+	border-radius: 4px;
+	margin-left: 4px;
+	vertical-align: middle;
+}
+
+.aichatclip-footer {
+	margin-top: 24px;
+	padding-top: 12px;
+	border-top: 1px solid var(--background-modifier-border);
+	text-align: center;
+	font-size: var(--font-ui-small);
+}
+
+.aichatclip-footer a {
+	color: var(--text-muted);
+}
+
+.aichatclip-footer a:hover {
+	color: var(--text-accent);
+}
+
+/* Plan comparison */
+.aichatclip-plan-box {
+	margin-bottom: 16px;
+}
+
+.aichatclip-plan-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: var(--font-ui-small);
+	margin-bottom: 12px;
+}
+
+.aichatclip-plan-table th,
+.aichatclip-plan-table td {
+	padding: 6px 10px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	text-align: left;
+}
+
+.aichatclip-plan-table th {
+	font-weight: var(--font-semibold);
+	color: var(--text-normal);
+}
+
+.aichatclip-plan-table th:not(:first-child),
+.aichatclip-plan-table td:not(:first-child) {
+	text-align: center;
+	width: 70px;
+}
+
+.aichatclip-check {
+	color: var(--interactive-accent);
+	font-weight: bold;
+}
+
+.aichatclip-dash {
+	color: var(--text-faint);
+}
+
+.aichatclip-plan-cta {
+	text-align: center;
+	margin: 12px 0;
+}
+
+.aichatclip-plan-link {
+	display: inline-block;
+	padding: 8px 20px;
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-radius: 6px;
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-medium);
+	text-decoration: none;
+}
+
+.aichatclip-plan-link:hover {
+	opacity: 0.9;
+	text-decoration: none;
+	color: var(--text-on-accent);
+}
+
+.aichatclip-separator {
+	border: none;
+	border-top: 1px solid var(--background-modifier-border);
+	margin: 16px 0;
+}
