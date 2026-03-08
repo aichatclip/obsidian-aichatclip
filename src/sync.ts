@@ -1,7 +1,7 @@
 import { type App, requestUrl } from "obsidian";
 import { scanFolders, syncFoldersToApi } from "./folders";
-import { extractDatePrefix, formatClipToMarkdown } from "./formatter";
-import type { AIChatClipSettings, Clip } from "./types";
+import { formatClipToMarkdown, formatLocalDate } from "./formatter";
+import type { AIChatClipSettings, Clip, UserPlan } from "./types";
 
 export interface SyncResult {
 	synced: number;
@@ -21,6 +21,23 @@ async function fetchPendingClips(settings: AIChatClipSettings): Promise<Clip[]> 
 	}
 
 	return res.json as Clip[];
+}
+
+async function fetchUserPlan(settings: AIChatClipSettings): Promise<UserPlan> {
+	try {
+		const res = await requestUrl({
+			url: `${settings.apiBaseUrl}/api/me`,
+			method: "GET",
+			headers: { Authorization: `Bearer ${settings.token}` },
+		});
+		if (res.status === 200) {
+			const data = res.json as { user?: { plan?: string } };
+			return (data.user?.plan === "pro" ? "pro" : "free") as UserPlan;
+		}
+	} catch {
+		// fall through
+	}
+	return "free";
 }
 
 async function markClipSynced(settings: AIChatClipSettings, clipId: string): Promise<void> {
@@ -69,22 +86,84 @@ async function getExistingSyncedClipIds(app: App, folderPath: string): Promise<S
 	return ids;
 }
 
+function sanitizeFileName(name: string): string {
+	return name
+		.replace(/[/\\:*?"<>|]/g, "-")
+		.replace(/-+/g, "-")
+		.replace(/^-|-$/g, "")
+		.trim();
+}
+
+export function applyFileNameTemplate(
+	template: string,
+	clip: Clip,
+	timezone: string,
+	userPlan: UserPlan,
+): string {
+	const localDate = formatLocalDate(clip.createdAt, timezone);
+	// Parse: 2026-03-08T14:08:06
+	const [datePart, timePart] = localDate.split("T");
+	const [yyyy, MM, dd] = datePart.split("-");
+	const [hh, mm, ss] = timePart.split(":");
+
+	let result = template
+		.replace(/\{yyyy\}/g, yyyy)
+		.replace(/\{MM\}/g, MM)
+		.replace(/\{dd\}/g, dd)
+		.replace(/\{hh\}/g, hh)
+		.replace(/\{mm\}/g, mm)
+		.replace(/\{ss\}/g, ss)
+		.replace(/\{source\}/g, clip.source)
+		.replace(/\{chat_title\}/g, sanitizeFileName(clip.chatTitle || "Untitled"));
+
+	if (userPlan === "pro") {
+		result = result.replace(/\{title\}/g, sanitizeFileName(clip.title || "Untitled"));
+	} else {
+		result = result.replace(/\{title\}/g, "title-only-pro-plan");
+	}
+
+	return result;
+}
+
 async function resolveFilePath(
 	app: App,
 	targetFolder: string,
-	datePrefix: string,
 	baseName: string,
 ): Promise<string> {
-	const fullBase = `${datePrefix}-${baseName}`;
-	let candidate = `${targetFolder}/${fullBase}.md`;
+	let candidate = `${targetFolder}/${baseName}.md`;
 	let counter = 2;
 
 	while (app.vault.getAbstractFileByPath(candidate)) {
-		candidate = `${targetFolder}/${fullBase}-${counter}.md`;
+		candidate = `${targetFolder}/${baseName}-${counter}.md`;
 		counter++;
 	}
 
 	return candidate;
+}
+
+async function syncTagRule(app: App, settings: AIChatClipSettings): Promise<void> {
+	if (!settings.tagRulePath || !settings.token) return;
+	try {
+		const filePath = `${settings.tagRulePath}.md`;
+		const file = app.vault.getAbstractFileByPath(filePath);
+		if (!file) return;
+
+		const mdFile = app.vault.getMarkdownFiles().find((f) => f.path === filePath);
+		if (!mdFile) return;
+
+		const content = await app.vault.read(mdFile);
+		await requestUrl({
+			url: `${settings.apiBaseUrl}/api/preferences`,
+			method: "PUT",
+			headers: {
+				Authorization: `Bearer ${settings.token}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ tagRule: content }),
+		});
+	} catch {
+		console.warn("AIChatClip: TagRule sync failed");
+	}
 }
 
 export async function syncClips(app: App, settings: AIChatClipSettings): Promise<SyncResult> {
@@ -100,7 +179,13 @@ export async function syncClips(app: App, settings: AIChatClipSettings): Promise
 		}
 	}
 
-	const clips = await fetchPendingClips(settings);
+	// Sync TagRule.md to API if exists
+	await syncTagRule(app, settings);
+
+	const [clips, userPlan] = await Promise.all([
+		fetchPendingClips(settings),
+		fetchUserPlan(settings),
+	]);
 	if (clips.length === 0) return result;
 
 	await ensureFolder(app, settings.inboxFolder);
@@ -115,14 +200,18 @@ export async function syncClips(app: App, settings: AIChatClipSettings): Promise
 				continue;
 			}
 
-			const markdown = formatClipToMarkdown(clip);
-			const datePrefix = extractDatePrefix(clip.createdAt);
-			const targetFolder = clip.folderPath
-				? `${settings.inboxFolder}/${clip.folderPath}`
+			const markdown = formatClipToMarkdown(clip, settings);
+			const targetFolder = userPlan === "pro" && clip.folderPath
+				? clip.folderPath
 				: settings.inboxFolder;
 			await ensureFolder(app, targetFolder);
-			const baseName = clip.fileName || "ChatLog";
-			const filePath = await resolveFilePath(app, targetFolder, datePrefix, baseName);
+			const baseName = applyFileNameTemplate(
+				settings.fileNameTemplate,
+				clip,
+				settings.timezone,
+				userPlan,
+			);
+			const filePath = await resolveFilePath(app, targetFolder, baseName);
 
 			await app.vault.create(filePath, markdown);
 

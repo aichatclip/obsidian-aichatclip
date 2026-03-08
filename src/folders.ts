@@ -35,7 +35,7 @@ export async function scanFolders(
 					: dir;
 
 		if (relativePath) {
-			entries.push({ path: relativePath, description: content.slice(0, 500) });
+			entries.push({ path: relativePath, description: content.slice(0, 3000) });
 		}
 	}
 

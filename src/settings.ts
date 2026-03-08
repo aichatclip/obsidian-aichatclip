@@ -1,4 +1,4 @@
-import { type App, Notice, PluginSettingTab, Setting } from "obsidian";
+import { type App, Notice, PluginSettingTab, Setting, requestUrl } from "obsidian";
 import { scanFolders, syncFoldersToApi } from "./folders";
 import type AIChatClipPlugin from "./main";
 import { WEB_URL } from "./types";
@@ -113,6 +113,36 @@ export class AIChatClipSettingTab extends PluginSettingTab {
 					this.plugin.settings.autoSyncOnLoad = value;
 					await this.plugin.saveSettings();
 				}),
+			);
+
+		new Setting(el)
+			.setName("Timezone")
+			.setDesc("Timezone for clipped_at in frontmatter (auto-detected)")
+			.addText((text) =>
+				text
+					.setPlaceholder(Intl.DateTimeFormat().resolvedOptions().timeZone)
+					.setValue(this.plugin.settings.timezone)
+					.onChange(async (value) => {
+						this.plugin.settings.timezone =
+							value || Intl.DateTimeFormat().resolvedOptions().timeZone;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(el)
+			.setName("File name template")
+			.setDesc(
+				"Variables: {yyyy} {MM} {dd} {hh} {mm} {ss} {source} {chat_title} {title} (Pro)\n" +
+				"Example: {yyyy}-{MM}-{dd}-{title} → 2026-03-08-Rustのライフタイム解説",
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder("{yyyy}-{MM}-{dd}-{title}")
+					.setValue(this.plugin.settings.fileNameTemplate)
+					.onChange(async (value) => {
+						this.plugin.settings.fileNameTemplate = value || "{yyyy}-{MM}-{dd}-{title}";
+						await this.plugin.saveSettings();
+					}),
 			);
 
 		new Setting(el)
@@ -245,5 +275,83 @@ export class AIChatClipSettingTab extends PluginSettingTab {
 					new Notice("README template copied to clipboard");
 				}),
 			);
+
+		// Separator
+		el.createEl("hr", { cls: "aichatclip-separator" });
+
+		el.createEl("h3", { text: "AI Customization" });
+
+		new Setting(el)
+			.setName("Title language")
+			.setDesc("Language for AI-generated titles (saved to server)")
+			.addDropdown((dropdown) => {
+				dropdown.addOptions({
+					auto: "Auto (same as content)",
+					en: "English",
+					ja: "日本語",
+					zh: "中文",
+					ko: "한국어",
+					es: "Español",
+					fr: "Français",
+					de: "Deutsch",
+				});
+				// Load current value from API
+				this.loadLanguageSetting(dropdown);
+				dropdown.onChange(async (value) => {
+					await this.savePreference({ fileNameLanguage: value });
+				});
+			});
+
+		new Setting(el)
+			.setName("Tag rule file")
+			.setDesc("Path to a markdown file with custom tag rules (without .md extension)")
+			.addText((text) =>
+				text
+					.setPlaceholder("TagRule")
+					.setValue(this.plugin.settings.tagRulePath)
+					.onChange(async (value) => {
+						this.plugin.settings.tagRulePath = value || "TagRule";
+						await this.plugin.saveSettings();
+					}),
+			);
+	}
+
+	private async loadLanguageSetting(dropdown: import("obsidian").DropdownComponent): Promise<void> {
+		if (!this.plugin.settings.token) return;
+		try {
+			const res = await requestUrl({
+				url: `${this.plugin.settings.apiBaseUrl}/api/preferences`,
+				method: "GET",
+				headers: { Authorization: `Bearer ${this.plugin.settings.token}` },
+			});
+			if (res.status === 200) {
+				const data = res.json as { fileNameLanguage?: string };
+				if (data.fileNameLanguage) {
+					dropdown.setValue(data.fileNameLanguage);
+				}
+			}
+		} catch {
+			// ignore
+		}
+	}
+
+	private async savePreference(body: Record<string, unknown>): Promise<void> {
+		if (!this.plugin.settings.token) {
+			new Notice("AIChatClip: Please sign in first");
+			return;
+		}
+		try {
+			await requestUrl({
+				url: `${this.plugin.settings.apiBaseUrl}/api/preferences`,
+				method: "PUT",
+				headers: {
+					Authorization: `Bearer ${this.plugin.settings.token}`,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(body),
+			});
+		} catch {
+			new Notice("AIChatClip: Failed to save preference");
+		}
 	}
 }
