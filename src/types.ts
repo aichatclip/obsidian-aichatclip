@@ -28,7 +28,7 @@ export interface AIChatClipSettings {
 	token: string;
 	inboxFolder: string;
 	autoSyncOnLoad: boolean;
-	syncIntervalMinutes: number;
+	syncOnForeground: boolean;
 	scanRoot: string;
 	markerFilename: string;
 	autoScanFolders: boolean;
@@ -37,6 +37,8 @@ export interface AIChatClipSettings {
 	tagRulePath: string;
 	deviceId: string;
 	syncedClipIds: string[];
+	pluginLanguage: "auto" | "en" | "ja" | "zh" | "ko";
+	cachedUserPlan: UserPlan;
 }
 
 export const DEFAULT_SETTINGS: AIChatClipSettings = {
@@ -44,7 +46,7 @@ export const DEFAULT_SETTINGS: AIChatClipSettings = {
 	token: "",
 	inboxFolder: "AIChatClip/Inbox",
 	autoSyncOnLoad: true,
-	syncIntervalMinutes: 0,
+	syncOnForeground: true,
 	scanRoot: "",
 	markerFilename: "README",
 	autoScanFolders: true,
@@ -53,4 +55,6 @@ export const DEFAULT_SETTINGS: AIChatClipSettings = {
 	tagRulePath: "TagRule",
 	deviceId: "",
 	syncedClipIds: [],
+	pluginLanguage: "auto",
+	cachedUserPlan: "free",
 };

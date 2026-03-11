@@ -1,4 +1,5 @@
 import { addIcon, Notice, Platform, Plugin } from "obsidian";
+import { type PluginLang, detectLang, t, tReplace } from "./i18n";
 import { AIChatClipSettingTab } from "./settings";
 import { syncClips, syncSingleClip } from "./sync";
 import { type AIChatClipSettings, DEFAULT_SETTINGS } from "./types";
@@ -13,10 +14,15 @@ const LOGO_ICON = `<g transform="scale(4.1667)" fill="currentColor">
 export default class AIChatClipPlugin extends Plugin {
 	settings: AIChatClipSettings = DEFAULT_SETTINGS;
 	private isSyncing = false;
-	private syncIntervalId: number | null = null;
 	private settingTab: AIChatClipSettingTab | null = null;
 	syncWs: SyncWebSocket | null = null;
 	wsConnected = false;
+
+	get lang(): PluginLang {
+		return this.settings.pluginLanguage === "auto"
+			? detectLang()
+			: this.settings.pluginLanguage;
+	}
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -57,13 +63,12 @@ export default class AIChatClipPlugin extends Plugin {
 					this.connectWebSocket();
 				}
 			}
-			this.startSyncInterval();
+			this.setupForegroundSync();
 		});
 	}
 
 	onunload(): void {
 		this.syncWs?.disconnect();
-		this.stopSyncInterval();
 	}
 
 	async loadSettings(): Promise<void> {
@@ -75,13 +80,14 @@ export default class AIChatClipPlugin extends Plugin {
 	}
 
 	async performSync(): Promise<void> {
+		const l = this.lang;
 		if (this.isSyncing) {
-			new Notice("AIChatClip: Sync already in progress");
+			new Notice(`AIChatClip: ${t("notice.syncInProgress", l)}`);
 			return;
 		}
 
 		if (!this.settings.token) {
-			new Notice("AIChatClip: Please set your session token in settings");
+			new Notice(`AIChatClip: ${t("notice.noToken", l)}`);
 			return;
 		}
 
@@ -89,13 +95,16 @@ export default class AIChatClipPlugin extends Plugin {
 		try {
 			const result = await syncClips(this.app, this.settings);
 
+			this.settings.cachedUserPlan = result.userPlan;
+			await this.saveSettings();
+
 			if (result.synced === 0 && result.failed === 0) {
-				new Notice("AIChatClip: No new clips to sync");
+				new Notice(`AIChatClip: ${t("notice.noNewClips", l)}`);
 			} else if (result.failed === 0) {
-				new Notice(`AIChatClip: Synced ${result.synced} clip(s)`);
+				new Notice(`AIChatClip: ${tReplace("notice.synced", l, { count: result.synced })}`);
 			} else {
 				new Notice(
-					`AIChatClip: Synced ${result.synced}, failed ${result.failed}. Check console for details.`,
+					`AIChatClip: ${tReplace("notice.syncPartial", l, { synced: result.synced, failed: result.failed })}`,
 				);
 				for (const err of result.errors) {
 					console.error("AIChatClip sync error:", err);
@@ -103,7 +112,7 @@ export default class AIChatClipPlugin extends Plugin {
 			}
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
-			new Notice(`AIChatClip: Sync failed - ${msg}`);
+			new Notice(`AIChatClip: ${tReplace("notice.syncFailed", l, { msg })}`);
 			console.error("AIChatClip sync error:", e);
 		} finally {
 			this.isSyncing = false;
@@ -117,7 +126,7 @@ export default class AIChatClipPlugin extends Plugin {
 		setTimeout(async () => {
 			await this.registerDevice();
 			this.settingTab?.display();
-			new Notice("AIChatClip: Connected successfully!");
+			new Notice(`AIChatClip: ${t("notice.connected", this.lang)}`);
 			this.performSync();
 
 			if (Platform.isDesktop) {
@@ -176,31 +185,27 @@ export default class AIChatClipPlugin extends Plugin {
 				() => this.saveSettings(),
 			);
 			if (synced) {
-				new Notice("AIChatClip: New clip synced");
+				new Notice(`AIChatClip: ${t("notice.newClipSynced", this.lang)}`);
 			}
 		} catch (e) {
 			console.error("AIChatClip: push sync failed", e);
 		}
 	}
 
-	startSyncInterval(): void {
-		this.stopSyncInterval();
+	setupForegroundSync(): void {
+		document.removeEventListener("visibilitychange", this.onVisibilityChange);
 
-		const minutes = this.settings.syncIntervalMinutes;
-		if (minutes > 0 && this.settings.token) {
-			this.syncIntervalId = window.setInterval(() => this.performSync(), minutes * 60 * 1000);
-			this.registerInterval(this.syncIntervalId);
+		if (!Platform.isMobile || !this.settings.syncOnForeground) return;
+
+		document.addEventListener("visibilitychange", this.onVisibilityChange);
+		this.register(() =>
+			document.removeEventListener("visibilitychange", this.onVisibilityChange),
+		);
+	}
+
+	private onVisibilityChange = (): void => {
+		if (document.visibilityState === "visible" && this.settings.syncOnForeground) {
+			this.performSync();
 		}
-	}
-
-	stopSyncInterval(): void {
-		if (this.syncIntervalId !== null) {
-			window.clearInterval(this.syncIntervalId);
-			this.syncIntervalId = null;
-		}
-	}
-
-	restartSyncInterval(): void {
-		this.startSyncInterval();
-	}
+	};
 }

@@ -9,6 +9,7 @@ export interface SyncResult {
 	synced: number;
 	failed: number;
 	errors: string[];
+	userPlan: "free" | "pro";
 }
 
 async function fetchPendingClips(settings: AIChatClipSettings): Promise<Clip[]> {
@@ -169,7 +170,7 @@ async function syncTagRule(app: App, settings: AIChatClipSettings): Promise<void
 }
 
 export async function syncClips(app: App, settings: AIChatClipSettings): Promise<SyncResult> {
-	const result: SyncResult = { synced: 0, failed: 0, errors: [] };
+	const result: SyncResult = { synced: 0, failed: 0, errors: [], userPlan: "free" };
 
 	// Sync vault folder structure to API for AI categorization
 	if (settings.autoScanFolders) {
@@ -188,6 +189,7 @@ export async function syncClips(app: App, settings: AIChatClipSettings): Promise
 		fetchPendingClips(settings),
 		fetchUserPlan(settings),
 	]);
+	result.userPlan = userPlan;
 	if (clips.length === 0) return result;
 
 	await ensureFolder(app, settings.inboxFolder);
@@ -270,6 +272,7 @@ export async function syncSingleClip(
 
 	const clip = await fetchClipById(settings, clipId);
 	const userPlan = await fetchUserPlan(settings);
+	settings.cachedUserPlan = userPlan;
 
 	await ensureFolder(app, settings.inboxFolder);
 
