@@ -1,11 +1,72 @@
 /** Vault folder scanning and server synchronization for smart folder placement */
-import type { App } from "obsidian";
+import type { App, TFolder } from "obsidian";
 import { apiPut } from "./api";
 import type { AIChatClipSettings } from "./types";
 
-interface FolderEntry {
+export interface FolderEntry {
 	path: string;
 	description: string;
+}
+
+const EXCLUDED_FOLDER_PREFIXES = [".obsidian", "node_modules"];
+
+function isExcludedFolder(path: string): boolean {
+	const first = path.split("/")[0];
+	return first.startsWith(".") || EXCLUDED_FOLDER_PREFIXES.includes(first);
+}
+
+/** Get all vault folders under scanRoot, excluding hidden/system folders */
+export function getVaultFolders(app: App, scanRoot: string): TFolder[] {
+	const root = scanRoot
+		? app.vault.getFolderByPath(scanRoot)
+		: app.vault.getRoot();
+	if (!root) return [];
+
+	const result: TFolder[] = [];
+	const collect = (folder: TFolder) => {
+		for (const child of folder.children) {
+			// TFolder has a `children` property; TFile does not
+			if (!("children" in child)) continue;
+			const f = child as TFolder;
+			if (!isExcludedFolder(f.path)) {
+				result.push(f);
+				collect(f);
+			}
+		}
+	};
+	collect(root);
+	return result;
+}
+
+/** Read existing marker file content, or null if not found */
+export async function getExistingMarkerContent(
+	app: App,
+	folderPath: string,
+	markerFilename: string,
+): Promise<string | null> {
+	const stem = markerFilename || "README";
+	const ext = stem.includes(".") ? "" : ".md";
+	const filePath = `${folderPath}/${stem}${ext}`;
+	const file = app.vault.getFileByPath(filePath);
+	if (!file) return null;
+	return app.vault.read(file);
+}
+
+/** Get folder paths that have a marker file (for delete mode) */
+export async function getFoldersWithMarker(
+	app: App,
+	scanRoot: string,
+	markerFilename: string,
+): Promise<{ folderPath: string; markerPath: string }[]> {
+	const marker = markerFilename || "README";
+	const markerFiles = app.vault.getFiles().filter((f) => {
+		if (f.basename !== marker) return false;
+		if (scanRoot === "") return true;
+		return f.path.startsWith(`${scanRoot}/`);
+	});
+	return markerFiles
+		.filter((f) => f.parent)
+		.map((f) => ({ folderPath: f.parent!.path, markerPath: f.path }));
 }
 
 export async function scanFolders(

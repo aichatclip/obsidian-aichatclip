@@ -281,6 +281,107 @@ const translations: Record<string, Record<PluginLang, string>> = {
 
 	// Title lang options
 	"titleLang.auto": { en: "Auto (same as content)", ja: "自動（コンテンツと同じ）", zh: "自动（与内容相同）", ko: "자동 (콘텐츠와 동일)" },
+
+	// Folder Manager (settings button)
+	"pro.folderManager.name": {
+		en: "Folder manager",
+		ja: "フォルダマネージャー",
+		zh: "文件夹管理器",
+		ko: "폴더 관리자",
+	},
+	"pro.folderManager.desc": {
+		en: "Create or delete marker files in bulk with AI-generated descriptions",
+		ja: "AIによる説明文生成でマーカーファイルを一括作成・削除",
+		zh: "使用AI生成描述批量创建或删除标记文件",
+		ko: "AI 생성 설명으로 마커 파일 일괄 생성/삭제",
+	},
+	"pro.folderManager.button": {
+		en: "Open folder manager",
+		ja: "フォルダマネージャーを開く",
+		zh: "打开文件夹管理器",
+		ko: "폴더 관리자 열기",
+	},
+
+	// Modal
+	"modal.title": { en: "Folder Manager", ja: "フォルダマネージャー", zh: "文件夹管理器", ko: "폴더 관리자" },
+	"modal.tabCreate": { en: "Create", ja: "作成", zh: "创建", ko: "생성" },
+	"modal.tabDelete": { en: "Delete", ja: "削除", zh: "删除", ko: "삭제" },
+	"modal.selectAll": { en: "Select all", ja: "全選択", zh: "全选", ko: "전체 선택" },
+	"modal.deselectAll": { en: "Deselect all", ja: "全解除", zh: "取消全选", ko: "전체 해제" },
+	"modal.descLanguage": { en: "Description language: ", ja: "説明文の言語: ", zh: "描述语言: ", ko: "설명 언어: " },
+	"modal.descPlaceholder": {
+		en: "Describe what kind of notes belong in this folder...",
+		ja: "このフォルダにどんなノートが入るか説明...",
+		zh: "描述此文件夹中属于哪种笔记...",
+		ko: "이 폴더에 어떤 노트가 들어가는지 설명...",
+	},
+	"modal.createAndSync": { en: "Create markers & sync", ja: "マーカー作成 & 同期", zh: "创建标记并同步", ko: "마커 생성 및 동기화" },
+	"modal.deleteAndSync": { en: "Delete selected & sync", ja: "選択したマーカーを削除 & 同期", zh: "删除选中的并同步", ko: "선택 항목 삭제 및 동기화" },
+	"modal.generate": { en: "AI Generate", ja: "AI生成", zh: "AI生成", ko: "AI 생성" },
+	"modal.generating": { en: "Generating...", ja: "生成中...", zh: "生成中...", ko: "생성 중..." },
+	"modal.existingMarker": { en: " (existing)", ja: "（既存）", zh: "（已有）", ko: " (기존)" },
+	"modal.noFolders": {
+		en: "No folders found in vault",
+		ja: "Vault内にフォルダが見つかりません",
+		zh: "库中未找到文件夹",
+		ko: "볼트에서 폴더를 찾을 수 없습니다",
+	},
+	"modal.noMarkers": {
+		en: "No marker files found",
+		ja: "マーカーファイルはありません",
+		zh: "未找到标记文件",
+		ko: "마커 파일이 없습니다",
+	},
+	"modal.markersFound": {
+		en: "Folders with marker files:",
+		ja: "マーカーファイルがあるフォルダ:",
+		zh: "包含标记文件的文件夹:",
+		ko: "마커 파일이 있는 폴더:",
+	},
+	"modal.confirmOverwrite": {
+		en: "{count} marker(s) will be overwritten. Continue?",
+		ja: "{count}個のマーカーファイルが上書きされます。続行しますか？",
+		zh: "{count}个标记文件将被覆盖。继续吗？",
+		ko: "{count}개의 마커 파일이 덮어쓰여집니다. 계속하시겠습니까?",
+	},
+
+	// Notices (folder manager)
+	"notice.markersCreated": {
+		en: "{count} marker(s) created",
+		ja: "{count}個のマーカーを作成しました",
+		zh: "已创建{count}个标记",
+		ko: "{count}개 마커 생성 완료",
+	},
+	"notice.markersDeleted": {
+		en: "{count} marker(s) deleted",
+		ja: "{count}個のマーカーを削除しました",
+		zh: "已删除{count}个标记",
+		ko: "{count}개 마커 삭제 완료",
+	},
+	"notice.generateFailed": {
+		en: "Failed to generate description",
+		ja: "説明文の生成に失敗しました",
+		zh: "生成描述失败",
+		ko: "설명 생성 실패",
+	},
+	"notice.quotaExceeded": {
+		en: "AI quota exceeded for this billing period",
+		ja: "今月のAI使用量上限に達しました",
+		zh: "本月AI使用量已达上限",
+		ko: "이번 청구 기간의 AI 할당량 초과",
+	},
+	"notice.syncAfterCreateFailed": {
+		en: "Markers created but sync failed",
+		ja: "マーカー作成後の同期に失敗しました",
+		zh: "标记已创建但同步失败",
+		ko: "마커 생성 후 동기화 실패",
+	},
+	"notice.syncAfterDeleteFailed": {
+		en: "Markers deleted but sync failed",
+		ja: "マーカー削除後の同期に失敗しました",
+		zh: "标记已删除但同步失败",
+		ko: "마커 삭제 후 동기화 실패",
+	},
 };
 
 export function t(key: string, lang: PluginLang): string {

@@ -4,6 +4,7 @@ import { apiGet, apiPatch, apiPut } from "./api";
 import { scanFolders, syncFoldersToApi } from "./folders";
 import { type PluginLang, detectLang, t, tReplace } from "./i18n";
 import type AIChatClipPlugin from "./main";
+import { FolderManagerModal } from "./modal";
 import { WEB_URL } from "./types";
 
 const README_TEMPLATE = `# Folder Name
@@ -360,6 +361,20 @@ export class AIChatClipSettingTab extends PluginSettingTab {
 					await navigator.clipboard.writeText(README_TEMPLATE);
 					new Notice(`AIChatClip: ${t("notice.readmeCopied", l)}`);
 				}),
+			);
+
+		new Setting(el)
+			.setName(t("pro.folderManager.name", l))
+			.setDesc(t("pro.folderManager.desc", l))
+			.addButton((button) =>
+				button
+					.setButtonText(t("pro.folderManager.button", l))
+					.setCta()
+					.onClick(() => {
+						new FolderManagerModal(this.app, this.plugin.settings, l, async () => {
+							// Refresh after modal completes
+						}).open();
+					}),
 			);
 
 		// Separator
