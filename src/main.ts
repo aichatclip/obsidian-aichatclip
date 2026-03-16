@@ -36,7 +36,7 @@ export default class AIChatClipPlugin extends Plugin {
 		}
 
 		addIcon("aichatclip-logo", LOGO_ICON);
-		this.addRibbonIcon("aichatclip-logo", "Sync AIChatClip", () => { void this.performSync(); });
+		this.addRibbonIcon("aichatclip-logo", "Sync aichatclip", () => { void this.performSync(); });
 
 		this.addCommand({
 			id: "sync",
@@ -49,7 +49,7 @@ export default class AIChatClipPlugin extends Plugin {
 
 		this.registerObsidianProtocolHandler("aichatclip", (params) => {
 			if (params.token) {
-				this.handleAuthCallback(params.token);
+				void this.handleAuthCallback(params.token);
 			}
 		});
 

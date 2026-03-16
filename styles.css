@@ -304,21 +304,27 @@
 	margin-left: 4px;
 }
 
-.aichatclip-folder-desc-row {
-	display: flex;
-	gap: 6px;
-	align-items: flex-start;
-}
-
 .aichatclip-folder-desc {
-	flex: 1;
+	width: 100%;
 	resize: vertical;
-	min-height: 50px;
+	min-height: 90px;
 	font-size: var(--font-ui-small);
 	font-family: inherit;
 }
 
+.aichatclip-folder-btn-row {
+	display: flex;
+	gap: 6px;
+	margin-top: 4px;
+}
+
 .aichatclip-generate-btn {
+	flex-shrink: 0;
+	font-size: var(--font-ui-small);
+	white-space: nowrap;
+}
+
+.aichatclip-refine-btn {
 	flex-shrink: 0;
 	font-size: var(--font-ui-small);
 	white-space: nowrap;

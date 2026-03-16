@@ -144,18 +144,21 @@ async function writeClipToVault(
 	await app.vault.create(filePath, markdown);
 }
 
+let lastTagRuleMtime = 0;
+
 async function syncTagRule(app: App, settings: AIChatClipSettings): Promise<void> {
 	if (!settings.tagRulePath || !settings.token) return;
 	try {
 		const filePath = `${settings.tagRulePath}.md`;
-		const file = app.vault.getAbstractFileByPath(filePath);
-		if (!file) return;
-
 		const mdFile = app.vault.getMarkdownFiles().find((f) => f.path === filePath);
 		if (!mdFile) return;
 
+		const mtime = mdFile.stat.mtime;
+		if (mtime === lastTagRuleMtime) return;
+
 		const content = await app.vault.read(mdFile);
 		await apiPut(settings, "/api/preferences", { tagRule: content });
+		lastTagRuleMtime = mtime;
 	} catch {
 		console.warn("AIChatClip: TagRule sync failed");
 	}
@@ -175,7 +178,9 @@ export async function syncClips(app: App, settings: AIChatClipSettings): Promise
 		if (settings.autoScanFolders) {
 			try {
 				const folders = await scanFolders(app, settings.scanRoot, settings.markerFilename);
-				await syncFoldersToApi(settings, folders);
+				if (folders) {
+					await syncFoldersToApi(settings, folders);
+				}
 			} catch (e) {
 				console.warn("AIChatClip: folder sync failed, continuing with clip sync", e);
 			}

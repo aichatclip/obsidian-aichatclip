@@ -7,6 +7,36 @@ import type AIChatClipPlugin from "./main";
 import { FolderManagerModal } from "./modal";
 import { WEB_URL } from "./types";
 
+const DEFAULT_TAG_RULE_TEMPLATE = `Tag Design and Naming Rules:
+
+1. Consistent naming
+- All lowercase: Tag names must be entirely lowercase. Example: #meeting, #project-alpha
+- No spaces: Use hyphens (-) or underscores (_) to separate words. Example: #to-do, #research_notes
+
+2. Content tags only
+- ALLOWED: Content tags representing the subject or topic. Example: #python, #data-analysis
+- FORBIDDEN: Status tags (#unorganized, #needs-review, #done), time tags (#2023, #Q1), location tags (#tokyo, #office)
+
+3. Use singular form
+- Always use singular. Example: #note (not #notes), #task (not #tasks)
+
+4. Allowed characters
+- Only hyphens (-), underscores (_), and slashes (/) are permitted. No spaces, special symbols, or emoji.
+
+5. Be specific and concise
+- Tag names should accurately and concisely represent the content.
+- Example: #marketing-strategy (good), #strategy (too vague)
+- Abbreviations: Only use widely recognized abbreviations. Example: ai, ui
+
+6. Proper nouns
+- Use the official/formal name for people, organizations, and places.
+
+7. Maximum 5 tags per note
+
+8. Forbidden tags
+- Do not use tags related to: TODO, ROUTINE (e.g. daily-routine), JOURNAL, STUDY, EXERCISE
+`;
+
 const README_TEMPLATE = `# Folder Name
 
 This folder contains notes about [topic].
@@ -201,7 +231,7 @@ export class AIChatClipSettingTab extends PluginSettingTab {
 			.setDesc(t("inbox.desc", l))
 			.addText((text) =>
 				text
-					.setPlaceholder("AIChatClip/Inbox")
+					.setPlaceholder("AIChatClip/inbox")
 					.setValue(this.plugin.settings.inboxFolder)
 					.onChange(async (value) => {
 						this.plugin.settings.inboxFolder = value;
@@ -344,8 +374,12 @@ export class AIChatClipSettingTab extends PluginSettingTab {
 							this.plugin.settings.scanRoot,
 							this.plugin.settings.markerFilename,
 						);
-						await syncFoldersToApi(this.plugin.settings, folders);
-						new Notice(`AIChatClip: ${tReplace("notice.foldersSynced", l, { count: folders.length })}`);
+						if (folders) {
+							await syncFoldersToApi(this.plugin.settings, folders);
+							new Notice(`AIChatClip: ${tReplace("notice.foldersSynced", l, { count: folders.length })}`);
+						} else {
+							new Notice(`AIChatClip: ${t("notice.foldersSynced", l)}`);
+						}
 					} catch (e) {
 						const msg = e instanceof Error ? e.message : String(e);
 						new Notice(`AIChatClip: ${tReplace("notice.folderScanFailed", l, { msg })}`);
@@ -397,24 +431,42 @@ export class AIChatClipSettingTab extends PluginSettingTab {
 					de: "Deutsch",
 				});
 				// Load current value from API
-				this.loadLanguageSetting(dropdown);
+				void this.loadLanguageSetting(dropdown);
 				dropdown.onChange(async (value) => {
 					await this.savePreference({ fileNameLanguage: value });
 				});
 			});
 
+		let updateCreateBtn: () => Promise<void>;
 		new Setting(el)
 			.setName(t("pro.tagRule.name", l))
 			.setDesc(t("pro.tagRule.desc", l))
 			.addText((text) =>
 				text
-					.setPlaceholder("TagRule")
+					.setPlaceholder("Tag rule")
 					.setValue(this.plugin.settings.tagRulePath)
 					.onChange(async (value) => {
 						this.plugin.settings.tagRulePath = value || "TagRule";
 						await this.plugin.saveSettings();
+						updateCreateBtn();
 					}),
-			);
+			)
+			.addButton((btn) => {
+				updateCreateBtn = async () => {
+					const path = `${this.plugin.settings.tagRulePath}.md`;
+					const exists = !!this.app.vault.getFileByPath(path);
+					btn.setDisabled(exists);
+				};
+				btn.setButtonText(t("pro.tagRule.create", l))
+					.onClick(async () => {
+						const path = `${this.plugin.settings.tagRulePath}.md`;
+						if (this.app.vault.getFileByPath(path)) return;
+						await this.app.vault.create(path, DEFAULT_TAG_RULE_TEMPLATE);
+						new Notice(t("pro.tagRule.created", l));
+						btn.setDisabled(true);
+					});
+				updateCreateBtn();
+			});
 	}
 
 	private renderGuideTab(el: HTMLElement): void {

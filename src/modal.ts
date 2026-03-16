@@ -130,9 +130,11 @@ export class FolderManagerModal extends Modal {
 		for (const folder of folders) {
 			if (!this.folderStates.has(folder.path)) {
 				const existing = await getExistingMarkerContent(this.app, folder.path, marker);
+				const folderTitle = folder.path.split("/").pop() ?? folder.path;
+				const defaultDesc = `# ${folderTitle}\n\n`;
 				this.folderStates.set(folder.path, {
 					selected: existing !== null,
-					description: existing ?? "",
+					description: existing ?? defaultDesc,
 					hasExisting: existing !== null,
 				});
 			}
@@ -160,22 +162,41 @@ export class FolderManagerModal extends Modal {
 				});
 			}
 
-			// Description textarea + AI generate button
-			const descRow = item.createDiv({ cls: "aichatclip-folder-desc-row" });
-			const textarea = descRow.createEl("textarea", {
+			// Description textarea
+			const textarea = item.createEl("textarea", {
 				cls: "aichatclip-folder-desc",
 				placeholder: t("modal.descPlaceholder", l),
 			});
 			textarea.value = state.description;
-			textarea.rows = 3;
+			textarea.rows = 5;
 			textarea.addEventListener("input", () => {
 				state.description = textarea.value;
+				updateRefineBtn();
 			});
 
-			const genBtn = descRow.createEl("button", {
+			// Button row (AI生成 + AI校正)
+			const btnRow = item.createDiv({ cls: "aichatclip-folder-btn-row" });
+			const genBtn = btnRow.createEl("button", {
 				text: t("modal.generate", l),
 				cls: "aichatclip-generate-btn",
 			});
+			const refineBtn = btnRow.createEl("button", {
+				text: t("modal.refine", l),
+				cls: "aichatclip-refine-btn",
+			});
+
+			const getDescriptionBody = (): string => {
+				const text = textarea.value.trim();
+				// Strip leading "# Title" line if present
+				const match = text.match(/^#[^\n]+\n*([\s\S]*)$/);
+				return match ? match[1].trim() : text;
+			};
+
+			const updateRefineBtn = () => {
+				refineBtn.disabled = getDescriptionBody().length === 0;
+			};
+			updateRefineBtn();
+
 			genBtn.addEventListener("click", async () => {
 				genBtn.disabled = true;
 				genBtn.textContent = t("modal.generating", l);
@@ -190,8 +211,13 @@ export class FolderManagerModal extends Modal {
 						new Notice(`AIChatClip: ${t("notice.quotaExceeded", l)}`);
 					} else if (res.status === 200) {
 						const data = res.json as { description: string; remaining: number };
-						textarea.value = data.description;
-						state.description = data.description;
+						const folderTitle = folder.path.split("/").pop() ?? folder.path;
+						const content = `# ${folderTitle}\n\n${data.description}`;
+						textarea.value = content;
+						state.description = content;
+						state.selected = true;
+						checkbox.checked = true;
+						updateRefineBtn();
 					} else {
 						new Notice(`AIChatClip: ${t("notice.generateFailed", l)}`);
 					}
@@ -200,6 +226,40 @@ export class FolderManagerModal extends Modal {
 				} finally {
 					genBtn.disabled = false;
 					genBtn.textContent = t("modal.generate", l);
+				}
+			});
+
+			refineBtn.addEventListener("click", async () => {
+				const body = getDescriptionBody();
+				if (body.length === 0) return;
+				refineBtn.disabled = true;
+				refineBtn.textContent = t("modal.refining", l);
+				try {
+					const res = await apiPost(this.settings, "/api/folders/generate-description", {
+						folderName: folder.path,
+						draftText: body,
+						language: this.descriptionLanguage !== "auto" ? this.descriptionLanguage : undefined,
+					});
+					if (res.status === 429) {
+						new Notice(`AIChatClip: ${t("notice.quotaExceeded", l)}`);
+					} else if (res.status === 200) {
+						const data = res.json as { description: string; remaining: number };
+						const folderTitle = folder.path.split("/").pop() ?? folder.path;
+						const content = `# ${folderTitle}\n\n${data.description}`;
+						textarea.value = content;
+						state.description = content;
+						state.selected = true;
+						checkbox.checked = true;
+						updateRefineBtn();
+					} else {
+						new Notice(`AIChatClip: ${t("notice.generateFailed", l)}`);
+					}
+				} catch {
+					new Notice(`AIChatClip: ${t("notice.generateFailed", l)}`);
+				} finally {
+					refineBtn.disabled = false;
+					refineBtn.textContent = t("modal.refine", l);
+					updateRefineBtn();
 				}
 			});
 		}
@@ -268,7 +328,9 @@ export class FolderManagerModal extends Modal {
 				this.settings.scanRoot,
 				this.settings.markerFilename,
 			);
-			await syncFoldersToApi(this.settings, folders);
+			if (folders) {
+				await syncFoldersToApi(this.settings, folders);
+			}
 			new Notice(
 				`AIChatClip: ${tReplace("notice.markersCreated", l, { count: selected.length })}`,
 			);
@@ -358,7 +420,9 @@ export class FolderManagerModal extends Modal {
 				this.settings.scanRoot,
 				this.settings.markerFilename,
 			);
-			await syncFoldersToApi(this.settings, folders);
+			if (folders) {
+				await syncFoldersToApi(this.settings, folders);
+			}
 			new Notice(
 				`AIChatClip: ${tReplace("notice.markersDeleted", l, { count: toDelete.length })}`,
 			);

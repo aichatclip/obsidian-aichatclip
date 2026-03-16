@@ -196,6 +196,8 @@ const translations: Record<string, Record<PluginLang, string>> = {
 		zh: "自定义标签规则的Markdown文件路径（不含.md扩展名）",
 		ko: "커스텀 태그 규칙 Markdown 파일 경로 (.md 확장자 제외)",
 	},
+	"pro.tagRule.create": { en: "Create template", ja: "テンプレート作成", zh: "创建模板", ko: "템플릿 생성" },
+	"pro.tagRule.created": { en: "Tag rule file created", ja: "タグルールファイルを作成しました", zh: "标签规则文件已创建", ko: "태그 규칙 파일이 생성되었습니다" },
 
 	// Notices
 	"notice.connected": { en: "Connected successfully!", ja: "接続しました！", zh: "连接成功！", ko: "연결 성공!" },
@@ -319,6 +321,8 @@ const translations: Record<string, Record<PluginLang, string>> = {
 	"modal.deleteAndSync": { en: "Delete selected & sync", ja: "選択したマーカーを削除 & 同期", zh: "删除选中的并同步", ko: "선택 항목 삭제 및 동기화" },
 	"modal.generate": { en: "AI Generate", ja: "AI生成", zh: "AI生成", ko: "AI 생성" },
 	"modal.generating": { en: "Generating...", ja: "生成中...", zh: "生成中...", ko: "생성 중..." },
+	"modal.refine": { en: "Refine with AI", ja: "AIで校正", zh: "AI校正", ko: "AI 교정" },
+	"modal.refining": { en: "Refining...", ja: "校正中...", zh: "校正中...", ko: "교정 중..." },
 	"modal.existingMarker": { en: " (existing)", ja: "（既存）", zh: "（已有）", ko: " (기존)" },
 	"modal.noFolders": {
 		en: "No folders found in vault",

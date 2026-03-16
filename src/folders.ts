@@ -69,12 +69,13 @@ export async function getFoldersWithMarker(
 		.map((f) => ({ folderPath: f.parent!.path, markerPath: f.path }));
 }
 
+let lastFoldersMtime = 0;
+
 export async function scanFolders(
 	app: App,
 	scanRoot: string,
 	markerFilename: string,
-): Promise<FolderEntry[]> {
-	const entries: FolderEntry[] = [];
+): Promise<FolderEntry[] | null> {
 	const marker = markerFilename || "README";
 
 	const markerFiles = app.vault
@@ -85,6 +86,10 @@ export async function scanFolders(
 			return f.path.startsWith(`${scanRoot}/`);
 		});
 
+	const maxMtime = markerFiles.reduce((max, f) => Math.max(max, f.stat.mtime), 0);
+	if (maxMtime > 0 && maxMtime === lastFoldersMtime) return null;
+
+	const entries: FolderEntry[] = [];
 	for (const file of markerFiles) {
 		const content = await app.vault.read(file);
 		const dir = file.parent?.path;
@@ -102,6 +107,7 @@ export async function scanFolders(
 		}
 	}
 
+	lastFoldersMtime = maxMtime;
 	return entries;
 }
 
