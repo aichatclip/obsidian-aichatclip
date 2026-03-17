@@ -1,5 +1,5 @@
 /** Vault folder scanning and server synchronization for smart folder placement */
-import type { App, TFolder } from "obsidian";
+import { type App, TFolder } from "obsidian";
 import { apiPut } from "./api";
 import type { AIChatClipSettings } from "./types";
 
@@ -8,10 +8,11 @@ export interface FolderEntry {
 	description: string;
 }
 
-const EXCLUDED_FOLDER_PREFIXES = [".obsidian", "node_modules"];
+const EXCLUDED_FOLDER_PREFIXES = ["node_modules"];
 
-function isExcludedFolder(path: string): boolean {
+function isExcludedFolder(app: App, path: string): boolean {
 	const first = path.split("/")[0];
+	if (first === app.vault.configDir) return true;
 	return first.startsWith(".") || EXCLUDED_FOLDER_PREFIXES.includes(first);
 }
 
@@ -25,12 +26,10 @@ export function getVaultFolders(app: App, scanRoot: string): TFolder[] {
 	const result: TFolder[] = [];
 	const collect = (folder: TFolder) => {
 		for (const child of folder.children) {
-			// TFolder has a `children` property; TFile does not
-			if (!("children" in child)) continue;
-			const f = child as TFolder;
-			if (!isExcludedFolder(f.path)) {
-				result.push(f);
-				collect(f);
+			if (!(child instanceof TFolder)) continue;
+			if (!isExcludedFolder(app, child.path)) {
+				result.push(child);
+				collect(child);
 			}
 		}
 	};
@@ -53,11 +52,11 @@ export async function getExistingMarkerContent(
 }
 
 /** Get folder paths that have a marker file (for delete mode) */
-export async function getFoldersWithMarker(
+export function getFoldersWithMarker(
 	app: App,
 	scanRoot: string,
 	markerFilename: string,
-): Promise<{ folderPath: string; markerPath: string }[]> {
+): { folderPath: string; markerPath: string }[] {
 	const marker = markerFilename || "README";
 	const markerFiles = app.vault.getFiles().filter((f) => {
 		if (f.basename !== marker) return false;

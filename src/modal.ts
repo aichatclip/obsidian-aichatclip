@@ -1,8 +1,7 @@
 /** Folder Manager Modal — bulk create/delete marker files with AI description generation */
-import { type App, Modal, Notice, TFile } from "obsidian";
+import { type App, type ButtonComponent, Modal, Notice, Setting } from "obsidian";
 import { apiPost } from "./api";
 import {
-	type FolderEntry,
 	getExistingMarkerContent,
 	getFoldersWithMarker,
 	getVaultFolders,
@@ -71,11 +70,11 @@ export class FolderManagerModal extends Modal {
 
 		createTab.addEventListener("click", () => {
 			this.mode = "create";
-			this.render();
+			void this.render();
 		});
 		deleteTab.addEventListener("click", () => {
 			this.mode = "delete";
-			this.render();
+			void this.render();
 		});
 
 		if (this.mode === "create") {
@@ -148,7 +147,7 @@ export class FolderManagerModal extends Modal {
 
 			// Checkbox + folder name
 			const header = item.createDiv({ cls: "aichatclip-folder-item-header" });
-			const checkbox = header.createEl("input", { type: "checkbox" }) as HTMLInputElement;
+			const checkbox = header.createEl("input", { type: "checkbox" });
 			checkbox.checked = state.selected;
 			checkbox.addEventListener("change", () => {
 				state.selected = checkbox.checked;
@@ -197,70 +196,74 @@ export class FolderManagerModal extends Modal {
 			};
 			updateRefineBtn();
 
-			genBtn.addEventListener("click", async () => {
-				genBtn.disabled = true;
-				genBtn.textContent = t("modal.generating", l);
-				try {
-					const excerpts = await this.getNoteExcerpts(folder.path, marker);
-					const res = await apiPost(this.settings, "/api/folders/generate-description", {
-						folderName: folder.path,
-						noteExcerpts: excerpts.length > 0 ? excerpts : undefined,
-						language: this.descriptionLanguage !== "auto" ? this.descriptionLanguage : undefined,
-					});
-					if (res.status === 429) {
-						new Notice(`AIChatClip: ${t("notice.quotaExceeded", l)}`);
-					} else if (res.status === 200) {
-						const data = res.json as { description: string; remaining: number };
-						const folderTitle = folder.path.split("/").pop() ?? folder.path;
-						const content = `# ${folderTitle}\n\n${data.description}`;
-						textarea.value = content;
-						state.description = content;
-						state.selected = true;
-						checkbox.checked = true;
-						updateRefineBtn();
-					} else {
+			genBtn.addEventListener("click", () => {
+				void (async () => {
+					genBtn.disabled = true;
+					genBtn.textContent = t("modal.generating", l);
+					try {
+						const excerpts = await this.getNoteExcerpts(folder.path, marker);
+						const res = await apiPost(this.settings, "/api/folders/generate-description", {
+							folderName: folder.path,
+							noteExcerpts: excerpts.length > 0 ? excerpts : undefined,
+							language: this.descriptionLanguage !== "auto" ? this.descriptionLanguage : undefined,
+						});
+						if (res.status === 429) {
+							new Notice(`AIChatClip: ${t("notice.quotaExceeded", l)}`);
+						} else if (res.status === 200) {
+							const data = res.json as { description: string; remaining: number };
+							const folderTitle = folder.path.split("/").pop() ?? folder.path;
+							const content = `# ${folderTitle}\n\n${data.description}`;
+							textarea.value = content;
+							state.description = content;
+							state.selected = true;
+							checkbox.checked = true;
+							updateRefineBtn();
+						} else {
+							new Notice(`AIChatClip: ${t("notice.generateFailed", l)}`);
+						}
+					} catch {
 						new Notice(`AIChatClip: ${t("notice.generateFailed", l)}`);
+					} finally {
+						genBtn.disabled = false;
+						genBtn.textContent = t("modal.generate", l);
 					}
-				} catch {
-					new Notice(`AIChatClip: ${t("notice.generateFailed", l)}`);
-				} finally {
-					genBtn.disabled = false;
-					genBtn.textContent = t("modal.generate", l);
-				}
+				})();
 			});
 
-			refineBtn.addEventListener("click", async () => {
-				const body = getDescriptionBody();
-				if (body.length === 0) return;
-				refineBtn.disabled = true;
-				refineBtn.textContent = t("modal.refining", l);
-				try {
-					const res = await apiPost(this.settings, "/api/folders/generate-description", {
-						folderName: folder.path,
-						draftText: body,
-						language: this.descriptionLanguage !== "auto" ? this.descriptionLanguage : undefined,
-					});
-					if (res.status === 429) {
-						new Notice(`AIChatClip: ${t("notice.quotaExceeded", l)}`);
-					} else if (res.status === 200) {
-						const data = res.json as { description: string; remaining: number };
-						const folderTitle = folder.path.split("/").pop() ?? folder.path;
-						const content = `# ${folderTitle}\n\n${data.description}`;
-						textarea.value = content;
-						state.description = content;
-						state.selected = true;
-						checkbox.checked = true;
-						updateRefineBtn();
-					} else {
+			refineBtn.addEventListener("click", () => {
+				void (async () => {
+					const body = getDescriptionBody();
+					if (body.length === 0) return;
+					refineBtn.disabled = true;
+					refineBtn.textContent = t("modal.refining", l);
+					try {
+						const res = await apiPost(this.settings, "/api/folders/generate-description", {
+							folderName: folder.path,
+							draftText: body,
+							language: this.descriptionLanguage !== "auto" ? this.descriptionLanguage : undefined,
+						});
+						if (res.status === 429) {
+							new Notice(`AIChatClip: ${t("notice.quotaExceeded", l)}`);
+						} else if (res.status === 200) {
+							const data = res.json as { description: string; remaining: number };
+							const folderTitle = folder.path.split("/").pop() ?? folder.path;
+							const content = `# ${folderTitle}\n\n${data.description}`;
+							textarea.value = content;
+							state.description = content;
+							state.selected = true;
+							checkbox.checked = true;
+							updateRefineBtn();
+						} else {
+							new Notice(`AIChatClip: ${t("notice.generateFailed", l)}`);
+						}
+					} catch {
 						new Notice(`AIChatClip: ${t("notice.generateFailed", l)}`);
+					} finally {
+						refineBtn.disabled = false;
+						refineBtn.textContent = t("modal.refine", l);
+						updateRefineBtn();
 					}
-				} catch {
-					new Notice(`AIChatClip: ${t("notice.generateFailed", l)}`);
-				} finally {
-					refineBtn.disabled = false;
-					refineBtn.textContent = t("modal.refine", l);
-					updateRefineBtn();
-				}
+				})();
 			});
 		}
 
@@ -283,8 +286,8 @@ export class FolderManagerModal extends Modal {
 			text: t("modal.createAndSync", l),
 			cls: "mod-cta",
 		});
-		createBtn.addEventListener("click", async () => {
-			await this.handleCreate(marker);
+		createBtn.addEventListener("click", () => {
+			void this.handleCreate(marker);
 		});
 	}
 
@@ -298,7 +301,8 @@ export class FolderManagerModal extends Modal {
 		// Check for overwrites
 		const overwrites = selected.filter(([, s]) => s.hasExisting);
 		if (overwrites.length > 0) {
-			const confirmed = confirm(
+			const confirmed = await showConfirmModal(
+				this.app,
 				tReplace("modal.confirmOverwrite", l, { count: overwrites.length }),
 			);
 			if (!confirmed) return;
@@ -369,7 +373,7 @@ export class FolderManagerModal extends Modal {
 
 		for (const item of this.deleteItems) {
 			const row = listEl.createDiv({ cls: "aichatclip-delete-item" });
-			const checkbox = row.createEl("input", { type: "checkbox" }) as HTMLInputElement;
+			const checkbox = row.createEl("input", { type: "checkbox" });
 			checkbox.checked = item.selected;
 			checkbox.addEventListener("change", () => {
 				item.selected = checkbox.checked;
@@ -396,8 +400,8 @@ export class FolderManagerModal extends Modal {
 			text: t("modal.deleteAndSync", l),
 			cls: "mod-warning",
 		});
-		deleteBtn.addEventListener("click", async () => {
-			await this.handleDelete();
+		deleteBtn.addEventListener("click", () => {
+			void this.handleDelete();
 		});
 	}
 
@@ -409,7 +413,7 @@ export class FolderManagerModal extends Modal {
 		for (const item of toDelete) {
 			const file = this.app.vault.getFileByPath(item.markerPath);
 			if (file) {
-				await this.app.vault.delete(file);
+				await this.app.fileManager.trashFile(file);
 			}
 		}
 
@@ -452,4 +456,48 @@ export class FolderManagerModal extends Modal {
 		}
 		return excerpts;
 	}
+}
+
+class ConfirmModal extends Modal {
+	private message: string;
+	private resolved = false;
+	private resolvePromise: (value: boolean) => void;
+
+	constructor(app: App, message: string, resolvePromise: (value: boolean) => void) {
+		super(app);
+		this.message = message;
+		this.resolvePromise = resolvePromise;
+	}
+
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.createEl("p", { text: this.message });
+		new Setting(contentEl)
+			.addButton((btn: ButtonComponent) =>
+				btn.setButtonText("OK").setCta().onClick(() => {
+					this.resolved = true;
+					this.resolvePromise(true);
+					this.close();
+				}),
+			)
+			.addButton((btn: ButtonComponent) =>
+				btn.setButtonText("Cancel").onClick(() => {
+					this.resolved = true;
+					this.resolvePromise(false);
+					this.close();
+				}),
+			);
+	}
+
+	onClose() {
+		if (!this.resolved) {
+			this.resolvePromise(false);
+		}
+	}
+}
+
+function showConfirmModal(app: App, message: string): Promise<boolean> {
+	return new Promise((resolve) => {
+		new ConfirmModal(app, message, resolve).open();
+	});
 }

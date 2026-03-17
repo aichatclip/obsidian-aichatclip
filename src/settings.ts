@@ -437,7 +437,7 @@ export class AIChatClipSettingTab extends PluginSettingTab {
 				});
 			});
 
-		let updateCreateBtn: () => Promise<void>;
+		let updateCreateBtn: () => void;
 		new Setting(el)
 			.setName(t("pro.tagRule.name", l))
 			.setDesc(t("pro.tagRule.desc", l))
@@ -452,7 +452,7 @@ export class AIChatClipSettingTab extends PluginSettingTab {
 					}),
 			)
 			.addButton((btn) => {
-				updateCreateBtn = async () => {
+				updateCreateBtn = () => {
 					const path = `${this.plugin.settings.tagRulePath}.md`;
 					const exists = !!this.app.vault.getFileByPath(path);
 					btn.setDisabled(exists);

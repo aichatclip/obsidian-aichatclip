@@ -23,7 +23,7 @@ __export(main_exports, {
   default: () => AIChatClipPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 
 // src/api.ts
 var import_obsidian = require("obsidian");
@@ -472,12 +472,14 @@ function detectLang() {
 }
 
 // src/settings.ts
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 
 // src/folders.ts
-var EXCLUDED_FOLDER_PREFIXES = [".obsidian", "node_modules"];
-function isExcludedFolder(path) {
+var import_obsidian2 = require("obsidian");
+var EXCLUDED_FOLDER_PREFIXES = ["node_modules"];
+function isExcludedFolder(app, path) {
   const first = path.split("/")[0];
+  if (first === app.vault.configDir) return true;
   return first.startsWith(".") || EXCLUDED_FOLDER_PREFIXES.includes(first);
 }
 function getVaultFolders(app, scanRoot) {
@@ -486,11 +488,10 @@ function getVaultFolders(app, scanRoot) {
   const result = [];
   const collect = (folder) => {
     for (const child of folder.children) {
-      if (!("children" in child)) continue;
-      const f = child;
-      if (!isExcludedFolder(f.path)) {
-        result.push(f);
-        collect(f);
+      if (!(child instanceof import_obsidian2.TFolder)) continue;
+      if (!isExcludedFolder(app, child.path)) {
+        result.push(child);
+        collect(child);
       }
     }
   };
@@ -505,7 +506,7 @@ async function getExistingMarkerContent(app, folderPath, markerFilename) {
   if (!file) return null;
   return app.vault.read(file);
 }
-async function getFoldersWithMarker(app, scanRoot, markerFilename) {
+function getFoldersWithMarker(app, scanRoot, markerFilename) {
   const marker = markerFilename || "README";
   const markerFiles = app.vault.getFiles().filter((f) => {
     if (f.basename !== marker) return false;
@@ -546,8 +547,8 @@ async function syncFoldersToApi(settings, folders) {
 }
 
 // src/modal.ts
-var import_obsidian2 = require("obsidian");
-var FolderManagerModal = class extends import_obsidian2.Modal {
+var import_obsidian3 = require("obsidian");
+var FolderManagerModal = class extends import_obsidian3.Modal {
   constructor(app, settings, lang, onComplete) {
     super(app);
     this.mode = "create";
@@ -581,11 +582,11 @@ var FolderManagerModal = class extends import_obsidian2.Modal {
     });
     createTab.addEventListener("click", () => {
       this.mode = "create";
-      this.render();
+      void this.render();
     });
     deleteTab.addEventListener("click", () => {
       this.mode = "delete";
-      this.render();
+      void this.render();
     });
     if (this.mode === "create") {
       await this.renderCreateMode(contentEl);
@@ -687,75 +688,79 @@ var FolderManagerModal = class extends import_obsidian2.Modal {
         refineBtn.disabled = getDescriptionBody().length === 0;
       };
       updateRefineBtn();
-      genBtn.addEventListener("click", async () => {
-        var _a2;
-        genBtn.disabled = true;
-        genBtn.textContent = t("modal.generating", l);
-        try {
-          const excerpts = await this.getNoteExcerpts(folder.path, marker);
-          const res = await apiPost(this.settings, "/api/folders/generate-description", {
-            folderName: folder.path,
-            noteExcerpts: excerpts.length > 0 ? excerpts : void 0,
-            language: this.descriptionLanguage !== "auto" ? this.descriptionLanguage : void 0
-          });
-          if (res.status === 429) {
-            new import_obsidian2.Notice(`AIChatClip: ${t("notice.quotaExceeded", l)}`);
-          } else if (res.status === 200) {
-            const data = res.json;
-            const folderTitle = (_a2 = folder.path.split("/").pop()) != null ? _a2 : folder.path;
-            const content = `# ${folderTitle}
+      genBtn.addEventListener("click", () => {
+        void (async () => {
+          var _a2;
+          genBtn.disabled = true;
+          genBtn.textContent = t("modal.generating", l);
+          try {
+            const excerpts = await this.getNoteExcerpts(folder.path, marker);
+            const res = await apiPost(this.settings, "/api/folders/generate-description", {
+              folderName: folder.path,
+              noteExcerpts: excerpts.length > 0 ? excerpts : void 0,
+              language: this.descriptionLanguage !== "auto" ? this.descriptionLanguage : void 0
+            });
+            if (res.status === 429) {
+              new import_obsidian3.Notice(`AIChatClip: ${t("notice.quotaExceeded", l)}`);
+            } else if (res.status === 200) {
+              const data = res.json;
+              const folderTitle = (_a2 = folder.path.split("/").pop()) != null ? _a2 : folder.path;
+              const content = `# ${folderTitle}
 
 ${data.description}`;
-            textarea.value = content;
-            state.description = content;
-            state.selected = true;
-            checkbox.checked = true;
-            updateRefineBtn();
-          } else {
-            new import_obsidian2.Notice(`AIChatClip: ${t("notice.generateFailed", l)}`);
+              textarea.value = content;
+              state.description = content;
+              state.selected = true;
+              checkbox.checked = true;
+              updateRefineBtn();
+            } else {
+              new import_obsidian3.Notice(`AIChatClip: ${t("notice.generateFailed", l)}`);
+            }
+          } catch (e) {
+            new import_obsidian3.Notice(`AIChatClip: ${t("notice.generateFailed", l)}`);
+          } finally {
+            genBtn.disabled = false;
+            genBtn.textContent = t("modal.generate", l);
           }
-        } catch (e) {
-          new import_obsidian2.Notice(`AIChatClip: ${t("notice.generateFailed", l)}`);
-        } finally {
-          genBtn.disabled = false;
-          genBtn.textContent = t("modal.generate", l);
-        }
+        })();
       });
-      refineBtn.addEventListener("click", async () => {
-        var _a2;
-        const body = getDescriptionBody();
-        if (body.length === 0) return;
-        refineBtn.disabled = true;
-        refineBtn.textContent = t("modal.refining", l);
-        try {
-          const res = await apiPost(this.settings, "/api/folders/generate-description", {
-            folderName: folder.path,
-            draftText: body,
-            language: this.descriptionLanguage !== "auto" ? this.descriptionLanguage : void 0
-          });
-          if (res.status === 429) {
-            new import_obsidian2.Notice(`AIChatClip: ${t("notice.quotaExceeded", l)}`);
-          } else if (res.status === 200) {
-            const data = res.json;
-            const folderTitle = (_a2 = folder.path.split("/").pop()) != null ? _a2 : folder.path;
-            const content = `# ${folderTitle}
+      refineBtn.addEventListener("click", () => {
+        void (async () => {
+          var _a2;
+          const body = getDescriptionBody();
+          if (body.length === 0) return;
+          refineBtn.disabled = true;
+          refineBtn.textContent = t("modal.refining", l);
+          try {
+            const res = await apiPost(this.settings, "/api/folders/generate-description", {
+              folderName: folder.path,
+              draftText: body,
+              language: this.descriptionLanguage !== "auto" ? this.descriptionLanguage : void 0
+            });
+            if (res.status === 429) {
+              new import_obsidian3.Notice(`AIChatClip: ${t("notice.quotaExceeded", l)}`);
+            } else if (res.status === 200) {
+              const data = res.json;
+              const folderTitle = (_a2 = folder.path.split("/").pop()) != null ? _a2 : folder.path;
+              const content = `# ${folderTitle}
 
 ${data.description}`;
-            textarea.value = content;
-            state.description = content;
-            state.selected = true;
-            checkbox.checked = true;
+              textarea.value = content;
+              state.description = content;
+              state.selected = true;
+              checkbox.checked = true;
+              updateRefineBtn();
+            } else {
+              new import_obsidian3.Notice(`AIChatClip: ${t("notice.generateFailed", l)}`);
+            }
+          } catch (e) {
+            new import_obsidian3.Notice(`AIChatClip: ${t("notice.generateFailed", l)}`);
+          } finally {
+            refineBtn.disabled = false;
+            refineBtn.textContent = t("modal.refine", l);
             updateRefineBtn();
-          } else {
-            new import_obsidian2.Notice(`AIChatClip: ${t("notice.generateFailed", l)}`);
           }
-        } catch (e) {
-          new import_obsidian2.Notice(`AIChatClip: ${t("notice.generateFailed", l)}`);
-        } finally {
-          refineBtn.disabled = false;
-          refineBtn.textContent = t("modal.refine", l);
-          updateRefineBtn();
-        }
+        })();
       });
     }
     selectAllBtn.addEventListener("click", () => {
@@ -775,8 +780,8 @@ ${data.description}`;
       text: t("modal.createAndSync", l),
       cls: "mod-cta"
     });
-    createBtn.addEventListener("click", async () => {
-      await this.handleCreate(marker);
+    createBtn.addEventListener("click", () => {
+      void this.handleCreate(marker);
     });
   }
   async handleCreate(marker) {
@@ -787,7 +792,8 @@ ${data.description}`;
     if (selected.length === 0) return;
     const overwrites = selected.filter(([, s]) => s.hasExisting);
     if (overwrites.length > 0) {
-      const confirmed = confirm(
+      const confirmed = await showConfirmModal(
+        this.app,
         tReplace("modal.confirmOverwrite", l, { count: overwrites.length })
       );
       if (!confirmed) return;
@@ -815,11 +821,11 @@ ${data.description}`;
       if (folders) {
         await syncFoldersToApi(this.settings, folders);
       }
-      new import_obsidian2.Notice(
+      new import_obsidian3.Notice(
         `AIChatClip: ${tReplace("notice.markersCreated", l, { count: selected.length })}`
       );
     } catch (e) {
-      new import_obsidian2.Notice(`AIChatClip: ${t("notice.syncAfterCreateFailed", l)}`);
+      new import_obsidian3.Notice(`AIChatClip: ${t("notice.syncAfterCreateFailed", l)}`);
     }
     await this.onComplete();
     this.close();
@@ -867,8 +873,8 @@ ${data.description}`;
       text: t("modal.deleteAndSync", l),
       cls: "mod-warning"
     });
-    deleteBtn.addEventListener("click", async () => {
-      await this.handleDelete();
+    deleteBtn.addEventListener("click", () => {
+      void this.handleDelete();
     });
   }
   async handleDelete() {
@@ -878,7 +884,7 @@ ${data.description}`;
     for (const item of toDelete) {
       const file = this.app.vault.getFileByPath(item.markerPath);
       if (file) {
-        await this.app.vault.delete(file);
+        await this.app.fileManager.trashFile(file);
       }
     }
     try {
@@ -890,11 +896,11 @@ ${data.description}`;
       if (folders) {
         await syncFoldersToApi(this.settings, folders);
       }
-      new import_obsidian2.Notice(
+      new import_obsidian3.Notice(
         `AIChatClip: ${tReplace("notice.markersDeleted", l, { count: toDelete.length })}`
       );
     } catch (e) {
-      new import_obsidian2.Notice(`AIChatClip: ${t("notice.syncAfterDeleteFailed", l)}`);
+      new import_obsidian3.Notice(`AIChatClip: ${t("notice.syncAfterDeleteFailed", l)}`);
     }
     await this.onComplete();
     this.close();
@@ -914,6 +920,41 @@ ${data.description}`;
     return excerpts;
   }
 };
+var ConfirmModal = class extends import_obsidian3.Modal {
+  constructor(app, message, resolvePromise) {
+    super(app);
+    this.resolved = false;
+    this.message = message;
+    this.resolvePromise = resolvePromise;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl("p", { text: this.message });
+    new import_obsidian3.Setting(contentEl).addButton(
+      (btn) => btn.setButtonText("OK").setCta().onClick(() => {
+        this.resolved = true;
+        this.resolvePromise(true);
+        this.close();
+      })
+    ).addButton(
+      (btn) => btn.setButtonText("Cancel").onClick(() => {
+        this.resolved = true;
+        this.resolvePromise(false);
+        this.close();
+      })
+    );
+  }
+  onClose() {
+    if (!this.resolved) {
+      this.resolvePromise(false);
+    }
+  }
+};
+function showConfirmModal(app, message) {
+  return new Promise((resolve) => {
+    new ConfirmModal(app, message, resolve).open();
+  });
+}
 
 // src/types.ts
 var API_BASE_URL = "https://api.aichatclip.com";
@@ -978,7 +1019,7 @@ Describe what kind of content belongs in this folder so AI can categorize clips 
 - tag1
 - tag2
 `;
-var AIChatClipSettingTab = class extends import_obsidian3.PluginSettingTab {
+var AIChatClipSettingTab = class extends import_obsidian4.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -1032,7 +1073,7 @@ var AIChatClipSettingTab = class extends import_obsidian3.PluginSettingTab {
   }
   renderBasicTab(el) {
     const l = this.lang;
-    new import_obsidian3.Setting(el).setName(t("lang.name", l)).setDesc(t("lang.desc", l)).addDropdown((dropdown) => {
+    new import_obsidian4.Setting(el).setName(t("lang.name", l)).setDesc(t("lang.desc", l)).addDropdown((dropdown) => {
       dropdown.addOptions({
         auto: `${t("lang.auto", l)} (${detectLang()})`,
         en: "English",
@@ -1047,7 +1088,7 @@ var AIChatClipSettingTab = class extends import_obsidian3.PluginSettingTab {
         this.display();
       });
     });
-    const authSetting = new import_obsidian3.Setting(el).setName(t("auth.name", l));
+    const authSetting = new import_obsidian4.Setting(el).setName(t("auth.name", l));
     if (this.plugin.settings.token) {
       authSetting.setDesc(t("auth.connected", l));
       authSetting.addButton(
@@ -1067,33 +1108,33 @@ var AIChatClipSettingTab = class extends import_obsidian3.PluginSettingTab {
         })
       );
     }
-    if (this.plugin.settings.token && import_obsidian3.Platform.isDesktop) {
+    if (this.plugin.settings.token && import_obsidian4.Platform.isDesktop) {
       const wsKey = this.plugin.wsConnected ? "ws.connected" : "ws.disconnected";
-      new import_obsidian3.Setting(el).setName(t("ws.name", l)).setDesc(t(wsKey, l));
+      new import_obsidian4.Setting(el).setName(t("ws.name", l)).setDesc(t(wsKey, l));
     }
     if (this.plugin.settings.token) {
-      new import_obsidian3.Setting(el).setName(t("device.name", l)).setDesc(t("device.desc", l)).addButton(
+      new import_obsidian4.Setting(el).setName(t("device.name", l)).setDesc(t("device.desc", l)).addButton(
         (button) => button.setButtonText(t("device.makePrimary", l)).onClick(async () => {
           try {
             await apiPatch(this.plugin.settings, `/api/devices/${this.plugin.settings.deviceId}/primary`);
-            new import_obsidian3.Notice(`AIChatClip: ${t("notice.primarySet", l)}`);
-            if (import_obsidian3.Platform.isDesktop) {
+            new import_obsidian4.Notice(`AIChatClip: ${t("notice.primarySet", l)}`);
+            if (import_obsidian4.Platform.isDesktop) {
               this.plugin.connectWebSocket();
             }
           } catch (e) {
-            new import_obsidian3.Notice(`AIChatClip: ${t("notice.primaryFailed", l)}`);
+            new import_obsidian4.Notice(`AIChatClip: ${t("notice.primaryFailed", l)}`);
           }
         })
       );
     }
-    new import_obsidian3.Setting(el).setName(t("autoSync.name", l)).setDesc(t("autoSync.desc", l)).addToggle(
+    new import_obsidian4.Setting(el).setName(t("autoSync.name", l)).setDesc(t("autoSync.desc", l)).addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.autoSyncOnLoad).onChange(async (value) => {
         this.plugin.settings.autoSyncOnLoad = value;
         await this.plugin.saveSettings();
       })
     );
-    if (import_obsidian3.Platform.isMobile) {
-      new import_obsidian3.Setting(el).setName(t("syncOnForeground.name", l)).setDesc(t("syncOnForeground.desc", l)).addToggle(
+    if (import_obsidian4.Platform.isMobile) {
+      new import_obsidian4.Setting(el).setName(t("syncOnForeground.name", l)).setDesc(t("syncOnForeground.desc", l)).addToggle(
         (toggle) => toggle.setValue(this.plugin.settings.syncOnForeground).onChange(async (value) => {
           this.plugin.settings.syncOnForeground = value;
           await this.plugin.saveSettings();
@@ -1101,19 +1142,19 @@ var AIChatClipSettingTab = class extends import_obsidian3.PluginSettingTab {
         })
       );
     }
-    new import_obsidian3.Setting(el).setName(t("inbox.name", l)).setDesc(t("inbox.desc", l)).addText(
+    new import_obsidian4.Setting(el).setName(t("inbox.name", l)).setDesc(t("inbox.desc", l)).addText(
       (text) => text.setPlaceholder("AIChatClip/inbox").setValue(this.plugin.settings.inboxFolder).onChange(async (value) => {
         this.plugin.settings.inboxFolder = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian3.Setting(el).setName(t("fileName.name", l)).setDesc(t("fileName.desc", l)).addText(
+    new import_obsidian4.Setting(el).setName(t("fileName.name", l)).setDesc(t("fileName.desc", l)).addText(
       (text) => text.setPlaceholder("{yyyy}-{MM}-{dd}-{title}").setValue(this.plugin.settings.fileNameTemplate).onChange(async (value) => {
         this.plugin.settings.fileNameTemplate = value || "{yyyy}-{MM}-{dd}-{title}";
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian3.Setting(el).setName(t("timezone.name", l)).setDesc(t("timezone.desc", l)).addText(
+    new import_obsidian4.Setting(el).setName(t("timezone.name", l)).setDesc(t("timezone.desc", l)).addText(
       (text) => text.setPlaceholder(Intl.DateTimeFormat().resolvedOptions().timeZone).setValue(this.plugin.settings.timezone).onChange(async (value) => {
         this.plugin.settings.timezone = value || Intl.DateTimeFormat().resolvedOptions().timeZone;
         await this.plugin.saveSettings();
@@ -1164,28 +1205,28 @@ var AIChatClipSettingTab = class extends import_obsidian3.PluginSettingTab {
       text: t("pro.folderDocsLink", l),
       href: `${WEB_URL}/docs/marker-files`
     });
-    new import_obsidian3.Setting(el).setName(t("pro.autoScan.name", l)).setDesc(t("pro.autoScan.desc", l)).addToggle(
+    new import_obsidian4.Setting(el).setName(t("pro.autoScan.name", l)).setDesc(t("pro.autoScan.desc", l)).addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.autoScanFolders).onChange(async (value) => {
         this.plugin.settings.autoScanFolders = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian3.Setting(el).setName(t("pro.scanRoot.name", l)).setDesc(t("pro.scanRoot.desc", l)).addText(
+    new import_obsidian4.Setting(el).setName(t("pro.scanRoot.name", l)).setDesc(t("pro.scanRoot.desc", l)).addText(
       (text) => text.setPlaceholder(t("pro.scanRoot.placeholder", l)).setValue(this.plugin.settings.scanRoot).onChange(async (value) => {
         this.plugin.settings.scanRoot = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian3.Setting(el).setName(t("pro.marker.name", l)).setDesc(t("pro.marker.desc", l)).addText(
+    new import_obsidian4.Setting(el).setName(t("pro.marker.name", l)).setDesc(t("pro.marker.desc", l)).addText(
       (text) => text.setPlaceholder("README").setValue(this.plugin.settings.markerFilename).onChange(async (value) => {
         this.plugin.settings.markerFilename = value || "README";
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian3.Setting(el).setName(t("pro.scanNow.name", l)).setDesc(t("pro.scanNow.desc", l)).addButton(
+    new import_obsidian4.Setting(el).setName(t("pro.scanNow.name", l)).setDesc(t("pro.scanNow.desc", l)).addButton(
       (button) => button.setButtonText(t("pro.scanNow.button", l)).setCta().onClick(async () => {
         if (!this.plugin.settings.token) {
-          new import_obsidian3.Notice(`AIChatClip: ${t("notice.signInFirst", l)}`);
+          new import_obsidian4.Notice(`AIChatClip: ${t("notice.signInFirst", l)}`);
           return;
         }
         try {
@@ -1196,31 +1237,31 @@ var AIChatClipSettingTab = class extends import_obsidian3.PluginSettingTab {
           );
           if (folders) {
             await syncFoldersToApi(this.plugin.settings, folders);
-            new import_obsidian3.Notice(`AIChatClip: ${tReplace("notice.foldersSynced", l, { count: folders.length })}`);
+            new import_obsidian4.Notice(`AIChatClip: ${tReplace("notice.foldersSynced", l, { count: folders.length })}`);
           } else {
-            new import_obsidian3.Notice(`AIChatClip: ${t("notice.foldersSynced", l)}`);
+            new import_obsidian4.Notice(`AIChatClip: ${t("notice.foldersSynced", l)}`);
           }
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
-          new import_obsidian3.Notice(`AIChatClip: ${tReplace("notice.folderScanFailed", l, { msg })}`);
+          new import_obsidian4.Notice(`AIChatClip: ${tReplace("notice.folderScanFailed", l, { msg })}`);
         }
       })
     );
-    new import_obsidian3.Setting(el).setName(t("pro.readme.name", l)).setDesc(t("pro.readme.desc", l)).addButton(
+    new import_obsidian4.Setting(el).setName(t("pro.readme.name", l)).setDesc(t("pro.readme.desc", l)).addButton(
       (button) => button.setButtonText(t("pro.readme.button", l)).onClick(async () => {
         await navigator.clipboard.writeText(README_TEMPLATE);
-        new import_obsidian3.Notice(`AIChatClip: ${t("notice.readmeCopied", l)}`);
+        new import_obsidian4.Notice(`AIChatClip: ${t("notice.readmeCopied", l)}`);
       })
     );
-    new import_obsidian3.Setting(el).setName(t("pro.folderManager.name", l)).setDesc(t("pro.folderManager.desc", l)).addButton(
+    new import_obsidian4.Setting(el).setName(t("pro.folderManager.name", l)).setDesc(t("pro.folderManager.desc", l)).addButton(
       (button) => button.setButtonText(t("pro.folderManager.button", l)).setCta().onClick(() => {
         new FolderManagerModal(this.app, this.plugin.settings, l, async () => {
         }).open();
       })
     );
     el.createEl("hr", { cls: "aichatclip-separator" });
-    new import_obsidian3.Setting(el).setName(t("pro.aiCustomization", l)).setHeading();
-    new import_obsidian3.Setting(el).setName(t("pro.titleLang.name", l)).setDesc(t("pro.titleLang.desc", l)).addDropdown((dropdown) => {
+    new import_obsidian4.Setting(el).setName(t("pro.aiCustomization", l)).setHeading();
+    new import_obsidian4.Setting(el).setName(t("pro.titleLang.name", l)).setDesc(t("pro.titleLang.desc", l)).addDropdown((dropdown) => {
       dropdown.addOptions({
         auto: t("titleLang.auto", l),
         en: "English",
@@ -1237,14 +1278,14 @@ var AIChatClipSettingTab = class extends import_obsidian3.PluginSettingTab {
       });
     });
     let updateCreateBtn;
-    new import_obsidian3.Setting(el).setName(t("pro.tagRule.name", l)).setDesc(t("pro.tagRule.desc", l)).addText(
+    new import_obsidian4.Setting(el).setName(t("pro.tagRule.name", l)).setDesc(t("pro.tagRule.desc", l)).addText(
       (text) => text.setPlaceholder("Tag rule").setValue(this.plugin.settings.tagRulePath).onChange(async (value) => {
         this.plugin.settings.tagRulePath = value || "TagRule";
         await this.plugin.saveSettings();
         updateCreateBtn();
       })
     ).addButton((btn) => {
-      updateCreateBtn = async () => {
+      updateCreateBtn = () => {
         const path = `${this.plugin.settings.tagRulePath}.md`;
         const exists = !!this.app.vault.getFileByPath(path);
         btn.setDisabled(exists);
@@ -1253,7 +1294,7 @@ var AIChatClipSettingTab = class extends import_obsidian3.PluginSettingTab {
         const path = `${this.plugin.settings.tagRulePath}.md`;
         if (this.app.vault.getFileByPath(path)) return;
         await this.app.vault.create(path, DEFAULT_TAG_RULE_TEMPLATE);
-        new import_obsidian3.Notice(t("pro.tagRule.created", l));
+        new import_obsidian4.Notice(t("pro.tagRule.created", l));
         btn.setDisabled(true);
       });
       updateCreateBtn();
@@ -1261,14 +1302,14 @@ var AIChatClipSettingTab = class extends import_obsidian3.PluginSettingTab {
   }
   renderGuideTab(el) {
     const l = this.lang;
-    new import_obsidian3.Setting(el).setName(t("guide.title", l)).setHeading();
+    new import_obsidian4.Setting(el).setName(t("guide.title", l)).setHeading();
     const steps = el.createDiv({ cls: "aichatclip-guide-steps" });
     for (const i of [1, 2, 3]) {
       const step = steps.createDiv({ cls: "aichatclip-guide-step" });
       const num = step.createDiv({ cls: "aichatclip-guide-step-num" });
       num.setText(String(i));
       const content = step.createDiv({ cls: "aichatclip-guide-step-content" });
-      new import_obsidian3.Setting(content).setName(t(`guide.step${i}.title`, l)).setHeading();
+      new import_obsidian4.Setting(content).setName(t(`guide.step${i}.title`, l)).setHeading();
       content.createEl("p", { text: t(`guide.step${i}.desc`, l) });
     }
     const docsLink = el.createDiv({ cls: "aichatclip-guide-docs" });
@@ -1294,13 +1335,13 @@ var AIChatClipSettingTab = class extends import_obsidian3.PluginSettingTab {
   async savePreference(body) {
     const l = this.lang;
     if (!this.plugin.settings.token) {
-      new import_obsidian3.Notice(`AIChatClip: ${t("notice.signInFirst", l)}`);
+      new import_obsidian4.Notice(`AIChatClip: ${t("notice.signInFirst", l)}`);
       return;
     }
     try {
       await apiPut(this.plugin.settings, "/api/preferences", body);
     } catch (e) {
-      new import_obsidian3.Notice(`AIChatClip: ${t("notice.prefFailed", l)}`);
+      new import_obsidian4.Notice(`AIChatClip: ${t("notice.prefFailed", l)}`);
     }
   }
 };
@@ -1641,7 +1682,7 @@ var LOGO_ICON = `<g transform="scale(4.1667)" fill="currentColor">
   <path d="M20.2,9.8l-3.5,6.06c-.27.48-.89.64-1.37.37s-.64-.89-.37-1.37l3.5-6.06c1.11-1.91.45-4.36-1.46-5.46s-4.36-.45-5.46,1.46l-.5.87c-.27.48-.89.64-1.37.37s-.64-.89-.37-1.37l.5-.87C11.46.94,15.13-.05,18,1.61s3.85,5.33,2.2,8.2Z"/>
   <path d="M14.7,19.33l-.5.87c-1.66,2.87-5.33,3.85-8.2,2.2s-3.85-5.33-2.2-8.2l3.5-6.06c.27-.48.89-.64,1.37-.37s.64.89.37,1.37l-3.5,6.06c-1.1,1.91-.45,4.36,1.46,5.46s4.36.45,5.46-1.46l.5-.87c.27-.48.89-.64,1.37-.37s.64.89.37,1.37Z"/>
 </g>`;
-var AIChatClipPlugin = class extends import_obsidian4.Plugin {
+var AIChatClipPlugin = class extends import_obsidian5.Plugin {
   constructor() {
     super(...arguments);
     this.settings = DEFAULT_SETTINGS;
@@ -1664,7 +1705,7 @@ var AIChatClipPlugin = class extends import_obsidian4.Plugin {
       this.settings.deviceId = crypto.randomUUID();
       await this.saveSettings();
     }
-    (0, import_obsidian4.addIcon)("aichatclip-logo", LOGO_ICON);
+    (0, import_obsidian5.addIcon)("aichatclip-logo", LOGO_ICON);
     this.addRibbonIcon("aichatclip-logo", "Sync aichatclip", () => {
       void this.performSync();
     });
@@ -1688,7 +1729,7 @@ var AIChatClipPlugin = class extends import_obsidian4.Plugin {
         if (this.settings.autoSyncOnLoad) {
           void this.performSync();
         }
-        if (import_obsidian4.Platform.isDesktop) {
+        if (import_obsidian5.Platform.isDesktop) {
           this.connectWebSocket();
         }
       }
@@ -1708,11 +1749,11 @@ var AIChatClipPlugin = class extends import_obsidian4.Plugin {
   async performSync() {
     const l = this.lang;
     if (this.isSyncing) {
-      new import_obsidian4.Notice(`AIChatClip: ${t("notice.syncInProgress", l)}`);
+      new import_obsidian5.Notice(`AIChatClip: ${t("notice.syncInProgress", l)}`);
       return;
     }
     if (!this.settings.token) {
-      new import_obsidian4.Notice(`AIChatClip: ${t("notice.noToken", l)}`);
+      new import_obsidian5.Notice(`AIChatClip: ${t("notice.noToken", l)}`);
       return;
     }
     this.isSyncing = true;
@@ -1721,11 +1762,11 @@ var AIChatClipPlugin = class extends import_obsidian4.Plugin {
       this.settings.cachedUserPlan = result.userPlan;
       await this.saveSettings();
       if (result.synced === 0 && result.failed === 0) {
-        new import_obsidian4.Notice(`AIChatClip: ${t("notice.noNewClips", l)}`);
+        new import_obsidian5.Notice(`AIChatClip: ${t("notice.noNewClips", l)}`);
       } else if (result.failed === 0) {
-        new import_obsidian4.Notice(`AIChatClip: ${tReplace("notice.synced", l, { count: result.synced })}`);
+        new import_obsidian5.Notice(`AIChatClip: ${tReplace("notice.synced", l, { count: result.synced })}`);
       } else {
-        new import_obsidian4.Notice(
+        new import_obsidian5.Notice(
           `AIChatClip: ${tReplace("notice.syncPartial", l, { synced: result.synced, failed: result.failed })}`
         );
         for (const err of result.errors) {
@@ -1734,7 +1775,7 @@ var AIChatClipPlugin = class extends import_obsidian4.Plugin {
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      new import_obsidian4.Notice(`AIChatClip: ${tReplace("notice.syncFailed", l, { msg })}`);
+      new import_obsidian5.Notice(`AIChatClip: ${tReplace("notice.syncFailed", l, { msg })}`);
       console.error("AIChatClip sync error:", e);
     } finally {
       this.isSyncing = false;
@@ -1748,9 +1789,9 @@ var AIChatClipPlugin = class extends import_obsidian4.Plugin {
         var _a;
         await registerDevice(this.settings);
         (_a = this.settingTab) == null ? void 0 : _a.display();
-        new import_obsidian4.Notice(`AIChatClip: ${t("notice.connected", this.lang)}`);
+        new import_obsidian5.Notice(`AIChatClip: ${t("notice.connected", this.lang)}`);
         void this.performSync();
-        if (import_obsidian4.Platform.isDesktop) {
+        if (import_obsidian5.Platform.isDesktop) {
           this.connectWebSocket();
         }
       })();
@@ -1785,7 +1826,7 @@ var AIChatClipPlugin = class extends import_obsidian4.Plugin {
         () => this.saveSettings()
       );
       if (synced) {
-        new import_obsidian4.Notice(`AIChatClip: ${t("notice.newClipSynced", this.lang)}`);
+        new import_obsidian5.Notice(`AIChatClip: ${t("notice.newClipSynced", this.lang)}`);
       }
     } catch (e) {
       console.error("AIChatClip: push sync failed", e);
@@ -1793,7 +1834,7 @@ var AIChatClipPlugin = class extends import_obsidian4.Plugin {
   }
   setupForegroundSync() {
     document.removeEventListener("visibilitychange", this.onVisibilityChange);
-    if (!import_obsidian4.Platform.isMobile || !this.settings.syncOnForeground) return;
+    if (!import_obsidian5.Platform.isMobile || !this.settings.syncOnForeground) return;
     document.addEventListener("visibilitychange", this.onVisibilityChange);
     this.register(
       () => document.removeEventListener("visibilitychange", this.onVisibilityChange)
